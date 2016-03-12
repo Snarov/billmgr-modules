@@ -1,0 +1,627 @@
+#!/usr/bin/php
+<?php
+
+set_include_path(get_include_path() . PATH_SEPARATOR . "/usr/local/mgr5/include/php");
+define('DEBUG', true);
+define('__MODULE__', "pmdomainby");
+
+define('SERVICE_PROFILE_XML', __DIR__ . ',,/etc/xml/service_profile.xml' );
+define('REGISTRAR_API_URL', 'https://dms1.ok.by/api/v1/json-rpc');
+define('PROFILE_FORM_VALUES_PATTERN', '/(?<=(?:<\/slist>)|(?:<\/messages>))(?:<(\w*)\s?[\w\s\d"=]*?>.*?<\/\1>)+(?=<\/doc>)/');
+
+define('BUSINESS_PROFILETYPE', 2);
+define('BY', 21);
+define('EGR_LEN', 9);
+define('UNP_LEN', 9);
+define('PASSPORT_NMBR_LEN', 7);
+define('PASSPORT_PERSONALNMBR_LEN', 14);
+
+require_once  __DIR__ . '/include/bill_util.php';
+
+ini_set('error_log', "/usr/local/mgr5/var/". __MODULE__ .".log");
+
+/**
+ * [$longopts description]
+ * @var array
+ */
+$longopts  = array
+(
+    "command:",
+    "subcommand:",
+    "id:",
+    "item:",
+    "lang:",
+    "module:",
+    "itemtype:",
+    "intname:",
+    "param:",
+    "value:",
+    "runningoperation:",
+    "level:",
+    "addon:",
+
+    "tld:",
+    "searchstring:",
+);
+$options = getopt("", $longopts);
+
+
+function GetConnection() {
+	$param = LocalQuery("otparamlist", array());
+	$result = $param->xpath('//elem/*');
+	$param_map = array();
+	$param_map["DBHost"] = "localhost";
+	$param_map["DBUser"] = "root";
+	$param_map["DBPassword"] = "";
+	$param_map["DBName"] = "billmgr";
+	while(list( , $node) = each($result)) {
+	    $param_map[$node->getName()] = $node;
+	}
+	
+	$db = new DB($param_map["DBHost"], $param_map["DBUser"], $param_map["DBPassword"], $param_map["DBName"]);
+	$db->set_charset('utf8');
+	
+	return $db;
+}
+function ItemParam($db, $iid) {
+	$res = $db->query("SELECT i.id AS item_id, i.processingmodule AS item_module, i.period AS item_period, i.status AS item_status, i.expiredate, 
+							  tld.name AS tld_name 
+					   FROM item i 
+					   JOIN pricelist p ON p.id = i.pricelist 
+					   JOIN tld ON tld.id = p.intname
+					   WHERE i.id=" . $iid);
+	if ($res == FALSE)
+		throw new Error("query", $db->error);
+    $param = $res->fetch_assoc();
+    $param_res = $db->query("SELECT intname, value FROM itemparam WHERE item = ".$iid);
+    while ($row = $param_res->fetch_assoc()) {
+    	$param[$row["intname"]] = $row["value"];
+    }
+    return $param;
+}
+function ItemProfiles($db, $iid, $module) {
+	$param = array();
+	$res = $db->query("SELECT sp2i.service_profile AS service_profile, sp2i.type AS type, sp2p.externalid AS externalid, sp2p.externalpassword AS externalpassword 
+					   FROM item i 
+					   JOIN service_profile2item sp2i ON sp2i.item = i.id 
+					   LEFT JOIN service_profile2processingmodule sp2p ON sp2p.service_profile = sp2i.service_profile AND sp2i.type = sp2p.type AND sp2p.processingmodule = " . $module . "
+					   WHERE i.id=" . $iid);
+	if ($res == FALSE){
+		throw new Error("query", $db->error);
+	}
+	while ($row = $res->fetch_assoc()) {
+    	$param[$row["type"]] = array();
+    	$param[$row["type"]]["externalid"] = $row["externalid"];
+    	$param[$row["type"]]["externalpassword"] = $row["externalpassword"];
+    	$param[$row["type"]]["service_profile"] = $row["service_profile"];
+    	$profile_res = $db->query("SELECT intname, value
+					   FROM service_profileparam
+					   WHERE service_profile=" . $row["service_profile"] . 
+					   " UNION " .
+					   "SELECT 'profiletype' AS intname, profiletype AS value FROM service_profile WHERE id=" . $row["service_profile"]);
+    	while ($profile_row = $profile_res->fetch_assoc()) {
+    		$param[$row["type"]][$profile_row["intname"]] = $profile_row["value"];
+    	}
+	}
+	
+	return $param;
+}
+function GetRegistrarClient($sid) {
+	if ($sid != "") {
+		$param = LocalQuery("processing.edit", array("elid" => $sid));
+		return new RegistrarClient(REGISTRAR_API_URL, $param->username, $param->password, DEBUG);
+	} else {
+		return new RegistrarClient(REGISTRAR_API_URL, "user", "password", DEBUG); // default connection
+	}
+}
+
+function PrepareRegistrantInfo($rawInfo){
+	
+	$country_codes_map = array(
+		"14" => "AU", 	"15" => "AT",
+		"16" => "AZ",	"2" => "AX",	"3" => "AL",
+        "4" => "DZ",	"5" => "AS",	"8" => "AI",	"7" => "AO",
+        "6" => "AD",	"10" => "AG",	"11" => "AR",	"12" => "AM",
+        "13" => "AW",	"1" => "AF",	"17" => "BS",	"19" => "BD",
+        "20" => "BB",	"18" => "BH",	"23" => "BZ",	"22" => "BE",
+        "24" => "BJ",	"25" => "BM",	"34" => "BG",	"27" => "BO",
+        "28" => "BA",	"29" => "BW",	"31" => "BR",	"32" => "IO",
+        "33" => "BN",	"30" => "BV",	"35" => "BF",	"36" => "BI",
+        "26" => "BT",	"237" => "VU",	"96" => "VA",	"232" => "GB",
+        "99" => "HU",	"238" => "VE",	"240" => "VG",	"241" => "VI",
+        "219" => "TL",	"239" => "VN",	"78" => "GA",	"94" => "HT",
+        "93" => "GY",	"79" => "GM",	"82" => "GH",	"87" => "GP",
+        "89" => "GT",	"91" => "GN",	"92" => "GW",	"81" => "DE",
+        "90" => "GG",	"83" => "GI",	"97" => "HN",	"98" => "HK",
+        "86" => "GD",	"85" => "GL",	"84" => "GR",	"80" => "GE",
+        "88" => "GU",	"59" => "DK",	"51" => "CD",	"111" => "JE",
+        "60" => "DJ",	"61" => "DM",	"62" => "DO",	"64" => "EG",
+        "245" => "ZM",	"243" => "EH",	"246" => "ZW",	"107" => "IL",
+        "101" => "IN",	"102" => "ID",	"112" => "JO",	"104" => "IQ",
+        "103" => "IR",	"105" => "IE",	"100" => "IS",	"206" => "ES",
+        "108" => "IT",	"244" => "YE",	"40" => "CV",	"113" => "KZ",
+        "41" => "KY",	"37" => "KH",	"38" => "CM",	"39" => "CA",
+        "148" => "MS",	"179" => "QA",	"114" => "KE",	"57" => "CY",
+        "115" => "KI",	"45" => "CN",	"116" => "KP",	"47" => "CC",
+        "48" => "CO",	"49" => "KM",	"50" => "CG",	"53" => "CR",
+        "54" => "CI",	"56" => "CU",	"118" => "KW",	"119" => "KG",
+        "120" => "LA",	"121" => "LV",	"123" => "LS",	"124" => "LR",
+        "122" => "LB",	"125" => "LY",	"127" => "LT",	"126" => "LI",
+        "128" => "LU",	"140" => "MU",	"139" => "MR",	"131" => "MG",
+        "141" => "YT",	"129" => "MO",	"130" => "MK",	"132" => "MW",
+        "133" => "MY",	"135" => "ML",	"134" => "MV",	"136" => "MT",
+        "149" => "MA",	"138" => "MQ",	"137" => "MH",	"142" => "MX",
+        "143" => "FM",	"150" => "MZ",	"144" => "MD",	"145" => "MC",
+        "146" => "MN",	"151" => "MM",	"152" => "NA",	"153" => "NR",
+        "154" => "NP",	"160" => "NE",	"161" => "NG",	"156" => "AN",
+        "155" => "NL",	"159" => "NI",	"162" => "NU",	"158" => "NZ",
+        "157" => "NC",	"165" => "NO",	"231" => "AE",	"166" => "OM",
+        "106" => "IM",	"163" => "NF",	"46" => "CX",	"185" => "SH",
+        "95" => "HM",	"52" => "CK",	"175" => "PN",	"242" => "WF",
+        "167" => "PK",	"168" => "PW",	"169" => "PS",	"170" => "PA",
+        "171" => "PG",	"172" => "PY",	"173" => "PE",	"176" => "PL",
+        "177" => "PT",	"178" => "PR",	"21" => "BY",	"180" => "RE",
+        "182" => "RU",	"183" => "RW",	"181" => "RO",	"65" => "SV",
+        "191" => "WS",	"192" => "SM",	"193" => "ST",	"194" => "SA",
+        "211" => "SZ",	"164" => "MP",	"197" => "SC",	"184" => "BL",
+        "188" => "MF",	"189" => "PM",	"195" => "SN",	"190" => "VC",
+        "186" => "KN",	"187" => "LC",	"196" => "RS",	"199" => "SG",
+        "214" => "SY",	"200" => "SK",	"201" => "SI",	"233" => "US",
+        "234" => "UM",	"202" => "SB",	"203" => "SO",	"208" => "SD",
+        "209" => "SR",	"198" => "SL",	"216" => "TJ",	"218" => "TH",
+        "215" => "TW",	"217" => "TZ",	"227" => "TC",	"220" => "TG",
+        "221" => "TK",	"222" => "TO",	"223" => "TT",	"228" => "TV",
+        "224" => "TN",	"226" => "TM",	"225" => "TR",	"229" => "UG",
+        "236" => "UZ",	"230" => "UA",	"235" => "UY",	"71" => "FO",
+        "72" => "FJ",	"174" => "PH",	"73" => "FI",	"70" => "FK",
+        "74" => "FR",	"75" => "GF",	"76" => "PF",	"77" => "TF",
+        "55" => "HR",	"42" => "CF",	"43" => "TD",	"147" => "ME",
+        "58" => "CZ",	"44" => "CL",	"213" => "CH",	"212" => "SE",
+        "210" => "SJ",	"207" => "LK",	"63" => "EC",	"66" => "GQ",
+        "67" => "ER",	"68" => "EE",	"69" => "ET",	"205" => "GS",
+        "117" => "KR",	"204" => "ZA",	"109" => "JM",	"110" => "JP",
+				);
+	
+	$registrant_info = array();
+	
+	$registrant_info['r_phone'] = $rawInfo['phone'];
+	$registrant_info['r_email'] = $rawInfo['email'];
+	$registrant_info['address_country'] = $country_codes_map[$rawInfo['location_country']];
+	$registrant_info['address_city'] = $rawInfo['location_city'];
+	$registrant_info['address_region'] = $rawInfo['location_state'];
+	$registrant_info['address_index'] = $rawInfo['location_postcode'];
+	$registrant_info['address_street'] = $rawInfo['location_street'];
+	$registrant_info['address_building'] = $rawInfo['location_building'];
+	$registrant_info['address_office'] = $rawInfo['location_office'];
+	
+	switch($rawInfo['profiletype']){
+		case '1':
+			$registrant_info['r_type'] = 'person';
+			$registrant_info['r_name'] = "{$rawInfo['lastname_locale']} {$rawInfo['firstname_locale']} {$rawInfo['middlename_locale']}";
+			$registrant_info['passport_nmbr'] = $rawInfo['passport'];
+			$registrant_info['passport_org'] = $rawInfo['passport_org'];
+			$registrant_info['passport_date'] = $rawInfo['passport_date'];
+			$registrant_info['passport_personalnmbr'] = $rawInfo['passport_personalnmbr'];
+		break;
+		case '2':
+			$registrant_info['r_type'] = 'organization';
+			$registrant_info['r_name'] = $rawInfo['company_locale'];
+			$registrant_info['r_chief'] = "{$rawInfo['lastname_locale']} {$rawInfo['firstname_locale']} {$rawInfo['middlename_locale']}";
+			
+			if($registrant_info['address_country'] === 'BY'){
+				
+				$registrant_info['egr_num'] = $rawInfo['egr_num'];
+				$registrant_info['egr_org'] = $rawInfo['egr_org'];
+				$registrant_info['egr_date'] = $rawInfo['egr_date'];
+			}
+		break;
+		case '3':
+			$registrant_info['r_type'] = 'ip';
+			$registrant_info['r_name'] = "{$rawInfo['lastname_locale']} {$rawInfo['firstname_locale']} {$rawInfo['middlename_locale']}";
+			$registrant_info['passport_nmbr'] = $rawInfo['passport'];
+			$registrant_info['passport_org'] = $rawInfo['passport_org'];
+			$registrant_info['passport_date'] = $rawInfo['passport_date'];
+			$registrant_info['passport_personalnmbr'] = $rawInfo['passport_personalnmbr'];
+			$registrant_info['r_unp'] = $rawInfo['ip_unp'];
+			$registrant_info['egr_org'] = $rawInfo['ip_egr_org'];
+			$registrant_info['egr_num'] = $rawInfo['ip_egr_num'];
+			$registrant_info['egr_date'] = $rawInfo['ip_egr_date'];
+		break;
+	}
+
+	return $registrant_info;
+}
+
+try {
+	$command = $options['command'];
+	$runningoperation = array_key_exists("runningoperation", $options) ? (int)$options['runningoperation'] : 0;
+	$item = array_key_exists("item", $options) ? (int)$options['item'] : 0;
+	Debug("command ". $options['command'] . ", item: " . $item . ", operation: " . $runningoperation);
+	if ($command == "features") {
+		/**
+		 * Build and output XML with module features and configuration
+		 */
+		$config_xml = simplexml_load_string($default_xml_string);
+		/**
+		 * Set supported itemtype 'domain'
+		 */
+		$itemtypes_node = $config_xml->addChild("itemtypes");
+		$itemtypes_node->addChild("itemtype")->addAttribute("name", "domain");
+		/**
+		 * Set settings param
+		 */
+		$params_node = $config_xml->addChild("params");
+
+
+		$params_node->addChild("param")->addAttribute("name", "username");							
+		$password = $params_node->addChild("param");											// Password for DB connection
+		$password->addAttribute("name", "password");
+		$password->addAttribute("crypted", "yes");
+		/**
+		 * Set supported features. Any feature can be skipped
+		 */
+		$features_node = $config_xml->addChild("features");
+		$features_node->addChild("feature")->addAttribute("name", "check_connection");			// Checking connection to DB with provided credentials
+
+
+		$features_node->addChild("feature")->addAttribute("name", "open");						// Register new domains in DB
+
+
+
+
+		$features_node->addChild("feature")->addAttribute("name", "setparam");					// Change param of service. Usually not used for domains
+		$features_node->addChild("feature")->addAttribute("name", "prolong");					// Prolong service. Simple chnage expiredate of domain in DB
+
+
+		$features_node->addChild("feature")->addAttribute("name", "get_contact_type");			// Get contact type needed for TLD and other specific TLD parameters
+		$features_node->addChild("feature")->addAttribute("name", "tune_service_profile");		// Tune service profile (domain contact) form while order service
+		$features_node->addChild("feature")->addAttribute("name", "validate_service_profile");  // Validate provided by customer basic or additional service profile parameters
+		$features_node->addChild("feature")->addAttribute("name", "update_ns");					// Change list of domain nameserver
+		$features_node->addChild("feature")->addAttribute("name", "whois");						// Return WHOIS domain data. Used by BILLmanager for checking domain availability and in lists
+		echo $config_xml->asXML();
+
+	} elseif ($command == "check_connection") {
+		$stdin_input = file_get_contents('php://stdin');
+		$connection_param = simplexml_load_string($stdin_input);
+		$username = $connection_param->processingmodule->username;
+		$password = $connection_param->processingmodule->password;
+		$registar_client = new RegistrarClient(REGISTRAR_API_URL, $username, $password, DEBUG);
+
+		try {
+			Debug($stdin_input);
+			$registar_client->CheckDomain( 'test.by' );
+		} catch (Exception $e) {
+			throw new Error("invalid_login_or_passwd");
+		}
+		echo $default_xml_string;
+	} elseif ($command == "get_contact_type") {
+		/**
+		 * Return XML config for TLD
+		 */
+		$config_xml = simplexml_load_string($default_xml_string);
+		$tld = $options['tld'];
+		if ($tld == "by") { // TLD with all available options
+
+			$config_xml->addAttribute("ns", "require");				// Require NS while order or transfer domain of 'my' tld
+			$config_xml->addAttribute("cancel_prolong_before", "30");	// Execute cancel_prolong command for domain before 30 day of expire
+		}
+		$config_xml->addChild("contact_type", "customer"); 	// Contact for customer account. Usually used for registrar with creating acconut for your customer
+
+
+
+
+		echo $config_xml->asXML();
+	} elseif ($command == "whois") {
+		
+		$domain = $options['param'];
+		
+		$whois_xml = simplexml_load_string($default_xml_string);
+		$registrar_client = GetRegistrarClient($options['module']);
+		$available = $registrar_client->CheckDomain($domain);
+		
+		if ($available) {
+			$whois_xml->addChild("whois", "Object does not exist");
+		} else {
+			$whois = "Domain: " . $domain . "\n";
+			$whois .= "Status: " . 'active' . "\n";
+			$whois_xml->addChild("whois", $whois);
+		}
+				
+		echo $whois_xml->asXML();
+		
+	} elseif ($command == "tune_service_profile") {
+		$tld = $options['param'];
+		$contact_type = $options['value'];
+		
+		ob_start();
+		var_dump($options);
+		$vardump = ob_get_clean();
+		ob_end_clean();
+		Debug($vardump);
+		$stdin_input = file_get_contents('php://stdin');
+
+
+
+		$service_profile_form_xml = file_get_contents(SERVICE_PROFILE_XML);
+		
+		if ( empty($service_profile_form_xml ) ) {
+			Debug('unable to load form xml file: ' . SERVICE_PROFILE_XML);
+			echo $default_xml_string;
+			exit(1);
+		}
+		
+		if( empty($tld) && empty($contact_type ) ) {
+			if(preg_match( PROFILE_FORM_VALUES_PATTERN, $stdin_input, $matches) ){
+				$cur_values_xml_part = $matches[0];
+				
+				$service_profile_form_xml = preg_replace( PROFILE_FORM_VALUES_PATTERN, $cur_values_xml_part, $service_profile_form_xml, 1, $repcount);
+				$service_profile_form_xml = str_replace(array('domain.order.contact', 'customer_', '<field name="contact_select"><select name="contact_select" setvalues="blocking"/></field>'),
+														array('service_profile.edit', '', ''),
+														$service_profile_form_xml
+														);
+				Debug($service_profile_form_xml);
+			} else{
+				Debug('Malformed input');
+				echo $default_xml_string;
+				exit(1);
+			}
+		}
+		
+		echo $service_profile_form_xml;
+
+
+		
+	} elseif ($command == "validate_service_profile") {
+	
+		Debug("validate_profile");
+		
+ 		$param_xml = simplexml_load_string(file_get_contents('php://stdin'));
+ 		
+ 		if( 1 == $param_xml->customer_profiletype  || 3 == $param_xml->customer_profiletype ) {
+			if ( strlen($param_xml->customer_passport) != PASSPORT_NMBR_LEN ){
+				throw new Error("passport_len", "customer_passport");
+			}
+			if ( strlen($param_xml->customer_passport_personalnmbr) != PASSPORT_PERSONALNMBR_LEN ){
+				throw new Error("passport_len_personalnmbr", "customer_passport_perosnalnmbr");
+			}
+			if ( strtotime($param_xml->customer_passport_date) > time() ){
+				throw new Error("date_incorrect", "customer_passport_date");
+			}
+		} else if( 2 == $param_xml->customer_profiletype && BY == $param_xml->customer_location_country) {
+			if( empty($param_xml->customer_egr_num) ) {
+				throw new Error("by_company_erg", "customer_egr_num");
+			}else if ( strlen($param_xml->customer_egr_num) != EGR_LEN ){
+				throw new Error("egr_len", "customer_egr_num");
+			}
+			if( empty($param_xml->customer_egr_org ) ){
+				throw new Error("by_company_erg", "customer_egr_org");
+			}
+			if( empty( $param_xml->customer_egr_date  ) ){
+				throw new Error("by_company_erg", "customer_egr_date");
+			} else if ( strtotime($param_xml->customer_egr_date) > time() ){
+				throw new Error("date_incorrect", "customer_egr_date");
+			}
+		}
+		
+		if( 3 == $param_xml->customer_profiletype ) {
+			if ( strlen($param_xml->customer_ip_unp) != UNP_LEN ){
+				throw new Error("unp_len", "customer_ip_unp");
+			}
+			if ( strlen($param_xml->customer_ip_egr_num) != EGR_LEN ){
+				throw new Error("egr_len", "customer_ip_egr_num");
+			}
+			if ( strtotime($param_xml->customer_ip_egr_date) > time() ){
+				throw new Error("date_incorrect", "customer_ip_egr_date");
+			}
+		}
+ 		
+		echo $default_xml_string;
+
+	} elseif ($command == "open") {
+
+		$db = GetConnection();
+		$iid = $options['item'];
+		$item_param = ItemParam($db, $iid);
+		$profile_params = ItemProfiles($db, $iid, $item_param["item_module"]);
+		$profile_external_link = array();
+			
+		$registrant_info = PrepareRegistrantInfo($profile_params['customer']);
+
+		$ns = array();
+		$ns_num = 0;
+		while (array_key_exists("ns" . $ns_num, $item_param) && !empty($item_param["ns" . $ns_num]) ) {
+			$ns_string_parts = explode( '/', $item_param["ns" . $ns_num] );
+			$ns[$ns_string_parts[0]] = "{$ns_string_parts[1]}";
+			$ns_num++;
+		}
+		
+		$registar_client = GetRegistrarClient($item_param["item_module"]);
+	
+		if ($registar_client->CreateDomain($item_param['domain'], 1, $ns, $registrant_info )) {
+			LocalQuery("domain.open", array("elid" => $item, "sok" => "ok"));
+		} else {
+			throw new Error("query", "Ошибка создания домена");
+		}
+	} elseif ($command == "suspend") {
+
+		$db = GetConnection();
+		$iid = $options['item'];
+		$item_param = ItemParam($db, $iid);
+		$ddb = GetDomainConnection($item_param["item_module"]);
+		$ddb->query("UPDATE domain SET status = 'suspend' WHERE name = '" . $ddb->real_escape_string($item_param["domain"]) . "' AND status != 'deleted'");
+
+		LocalQuery("service.postsuspend", array("elid" => $item, "sok" => "ok", ));
+	} elseif ($command == "resume") {
+
+		$db = GetConnection();
+		$iid = $options['item'];
+		$item_param = ItemParam($db, $iid);
+		$ddb = GetDomainConnection($item_param["item_module"]);
+		$ddb->query("UPDATE domain SET status = 'active' WHERE name = '" . $ddb->real_escape_string($item_param["domain"]) . "' AND status != 'deleted'");
+
+		LocalQuery("service.postresume", array("elid" => $item, "sok" => "ok", ));
+	} elseif ($command == "close") {
+
+		$db = GetConnection();
+		$iid = $options['item'];
+		$item_param = ItemParam($db, $iid);
+		$ddb = GetDomainConnection($item_param["item_module"]);
+		$ddb->query("UPDATE domain SET status = 'deleted' WHERE name = '" . $ddb->real_escape_string($item_param["domain"]) . "' AND status != 'deleted'");
+
+		LocalQuery("service.postclose", array("elid" => $item, "sok" => "ok", ));
+	} elseif ($command == "setparam") {
+
+
+		LocalQuery("service.postsetparam", array("elid" => $item, "sok" => "ok", ));
+	} elseif ($command == "prolong") {
+		$db = GetConnection();
+		$iid = $options['item'];
+		
+		$item_param = ItemParam($db, $iid);
+		$item_ex_date = $db->query("SELECT expiredate FROM item WHERE id=$iid")->fetch_assoc();
+		$item_ex_year = explode('-', $item_ex_date['expiredate'])[0];
+		
+		var_dump($item_ex_date);
+		var_dump($item_ex_year);
+		
+		$registar_client = GetRegistrarClient($item_param["item_module"]);
+		if ( $registar_client->Prolong($item_param['domain'], 1, $item_ex_year) ) {
+			LocalQuery("service.postprolong", array("elid" => $item, "sok" => "ok", ));
+		} else {
+			LocalQuery("service.postprolong", array("elid" => $item, ));
+			throw new Error("query", "Ошибка продления домена");
+		}
+		
+	} elseif ($command == "cancel_prolong") {
+
+
+	} elseif ($command == "sync_item") {
+
+		$db = GetConnection();
+		$iid = $options['item'];
+		$item_param = ItemParam($db, $iid);
+		$ddb = GetDomainConnection($item_param["item_module"]);
+		$param = $ddb->query("SELECT * FROM domain WHERE name = '" . $ddb->real_escape_string($item_param["domain"]) . "' AND status != 'deleted'")->fetch_assoc();
+		if ($param["status"] == "active") {
+			LocalQuery("service.postresume", array("elid" => $item, "sok" => "ok", ));
+			LocalQuery("service.setstatus", array("elid" => $item, "service_status" => "2", ));
+		} else {
+			LocalQuery("service.postsuspend", array("elid" => $item, "sok" => "ok", ));
+			LocalQuery("service.setstatus", array("elid" => $item, "service_status" => "8", ));
+		}
+		LocalQuery("service.setexpiredate", array("elid" => $item, "expiredate" => $param["expiredate"], ));
+	} elseif ($command == "update_ns") {
+
+		$db = GetConnection();
+		$iid = $options['item'];
+		$item_param = ItemParam($db, $iid);
+				
+		$ns = array();
+		$ns_num = 0;
+		while (array_key_exists("ns" . $ns_num, $item_param) && !empty($item_param["ns" . $ns_num]) ) {
+			$ns_string_parts = explode( '/', $item_param["ns" . $ns_num] );
+			$ns[$ns_string_parts[0]] = "{$ns_string_parts[1]}";
+			$ns_num++;
+		}
+		
+		$registar_client = GetRegistrarClient($item_param["item_module"]);
+		
+		if ( ! $registar_client->UpdateNS($item_param['domain'], $ns) ) {
+			throw new Error('query', 'Ошибка измения серверов имен');
+		}
+	} elseif ($command == "import") {
+
+		$module = $options['module'];
+		$search = array_key_exists("searchstring", $options) ? $options['searchstring'] : "";
+		$search_array = explode(" ", $search);
+		$db = GetConnection();
+		$ddb = GetDomainConnection($module);
+		$sub_query = "";
+		foreach ($search_array as $domain) {
+			if ($domain == "")
+				continue;
+			if ($sub_query == "")
+				$sub_query .= " AND name in (";
+			else
+				$sub_query .= ",";
+			$sub_query .= "'" . $ddb->real_escape_string($domain) . "'";
+		}
+		if ($sub_query != "")
+			$sub_query .= ")";
+		$contact_array = array();
+		$type_array = array("customer", "owner", "admin", "bill", "tech");
+		Debug("sub_query: ". $sub_query);
+		$res = $ddb->query("SELECT customer, owner, admin, bill, tech, name, status, expiredate, ns FROM domain WHERE status != 'deleted'" . $sub_query);
+		while ($row = $res->fetch_assoc()) {
+			$tld_name = explode(".", $row["name"], 2)[1];
+			$tld_id = $db->query("SELECT id FROM tld WHERE name = '" . $db->real_escape_string($tld_name) . "'")->fetch_row()[0];
+			$domain_param = array();
+			$domain_param["sok"] = "ok";
+			$domain_param["expiredate"] = $row["expiredate"];
+			$domain_param["module"] = $module;
+			$domain_param["status"] = $row["status"] == "active" ? "2" : "8";
+			$domain_param["import_pricelist_intname"] = $tld_id;
+			$domain_param["import_service_name"] = $row["name"];
+			$domain_param["domain"] = $row["name"];
+			$service_id = LocalQuery("processing.import.service", $domain_param)->service_id;
+			foreach ($type_array as $type) {
+				Debug($type);
+				if (array_key_exists($row[$type], $contact_array) == false) {
+					$contact = $ddb->query("SELECT * FROM contact WHERE id  = '" . $ddb->real_escape_string($row[$type]) . "'")->fetch_assoc();
+					$contact_param = array();
+					$contact_param["sok"] = "ok";
+					$contact_param["type"] = $type;
+					$contact_param["name"] = $contact["firstname"];
+					$contact_param["module"] = $module;
+					$contact_param["externalid"] = $row[$type];
+					$contact_param["profiletype"] = "1";
+					$contact_param["firstname"] = $contact["firstname"];
+					$contact_param["middlename"] = $contact["middlename"];
+					$contact_param["lastname"] = $contact["lastname"];
+					$contact_param["firstname_locale"] = $contact["firstname"];
+					$contact_param["middlename_locale"] = $contact["middlename"];
+					$contact_param["lastname_locale"] = $contact["lastname"];
+					$contact_param["passport"] = "";
+					$contact_param["location_postcode"] = "";
+					$contact_param["location_state"] = "";
+					$contact_param["location_city"] = "";
+					$contact_param["location_address"] = "";
+					$contact_param["birth_date"] = "";
+					$contact_param["location_country"] = "";
+					$contact_param["postal_postcode"] = "";
+					$contact_param["postal_state"] = "";
+					$contact_param["postal_city"] = "";
+					$contact_param["postal_address"] = "";
+					$contact_param["postal_addressee"] = "";
+					$contact_param["phone"] = "";
+					$contact_param["fax"] = "";
+					$contact_param["email"] = "";
+					$contact_param["inn"] = "";
+					$contact_param["mobile"] = "";
+					$contact_param["company"] = "";
+					$contact_param["company_locale"] = "";
+					$contact_param["kpp"] = "";
+					$contact_param["ogrn"] = "";
+					$profile_id = LocalQuery("processing.import.profile", $contact_param)->profile_id;
+					$contact_array[$row[$type]] = $profile_id;
+				}
+				LocalQuery("service_profile2item.edit", array("sok" => "ok", "service_profile" => $contact_array[$row[$type]], "item" => $service_id, "type" => $type));
+			}
+		}
+	}
+} catch (Exception $e) {
+	if ($runningoperation > 0) {
+
+		LocalQuery("runningoperation.edit", array("sok" => "ok", "elid" => $runningoperation, "errorxml" => $e,));
+		if ($item > 0) {
+
+			LocalQuery("runningoperation.setmanual", array("elid" => $runningoperation,));
+
+			$task_type = LocalQuery("task.gettype", array("operation" => $command,))->task_type;
+			if ($task_type != "") {
+				LocalQuery("task.edit", array("sok" => "ok", "item" => $item, "runningoperation" => $runningoperation, "type" => $task_type, ));
+			}
+		}
+	}
+	echo $e;
+}

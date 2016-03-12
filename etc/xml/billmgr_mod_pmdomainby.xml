@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mgrdata>
+  <plugin name="pmdomainby">
+    <group>processing_module</group>
+    <author>Vanya Kiskin</author>
+    <params>
+      <type name="domain"/>
+    </params>
+  </plugin>
+  <lang name="ru">
+    <messages name="plugin">
+      <msg name="desc_short_pmdomainby">Domain.by</msg>
+      <msg name="desc_full_pmdomainby">Интеграция с Domain.by</msg>
+      <msg name="price_pmdomainby">Бесплатно</msg>
+    </messages>
+    <messages name="processing.edit.pmdomainby">
+      <include name="label_langs"/>
+      <msg name="username">Имя пользоваетеля</msg>
+	  <msg name="hint_username">Имя пользователя в личном кабинете Domain.by</msg>
+	  <msg name="password">Пароль</msg>
+      <msg name="hint_password">Административный пароль доступа в личный кабинет Domain.by</msg>
+    </messages>
+	 <messages name="domain.order.contact">
+      <msg name="msg_error_by_company_erg">Юр. лица, являющиеся резидентами РБ, должны указать данные гос. регистрации</msg>
+	  <msg name="msg_error_egr_len">Длина номера ЕГР должна составлять 9 символов</msg>
+	  <msg name="msg_error_passport_len">Длина номера паспорта должна составлять 7 символов</msg>
+	  <msg name="msg_error_passport__len_personalnmbr">Длина идентификационного номера должна составлять 14 символов</msg>
+	  <msg name="msg_error_unp_len">Длина УНП должна составлять 9 символов</msg>
+	  <msg name="msg_error_date_incorrect">Указанная дата еще не наступила</msg>
+    </messages>
+   </lang>
+  <lang name="en">
+    <messages name="plugin">
+      <msg name="desc_short_pmdomainby">Domain.by</msg>
+      <msg name="desc_full_pmdomainby">Domain.by integration </msg>
+      <msg name="price_pmdomainby">Free</msg>
+    </messages>
+  </lang>
+  
+  <metadata name="processing.edit.pmdomainby" type="form">
+    <form title="name">
+      <page name="connect">
+        <field name="username">
+          <input type="text" name="username" required="yes" />
+        </field>
+        <field name="password">
+          <input type="password" name="password" required="yes"/>
+        </field>
+      </page>
+    </form>
+  </metadata>
+</mgrdata>
