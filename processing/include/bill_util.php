@@ -196,10 +196,10 @@ class RegistrarClient {
 		}
 	}
 	
-// 	public function __call($name, $arguments) {
-// 		return $this->client->__call($name, $arguments);
-// 	}
-// 	
+
+
+
+
 	public function CheckDomain($domain) {
 		$response = $this->client->CheckDomain( ['domain' => $domain ] );
 		
