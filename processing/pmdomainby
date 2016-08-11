@@ -5,7 +5,7 @@ set_include_path(get_include_path() . PATH_SEPARATOR . "/usr/local/mgr5/include/
 define('DEBUG', true);
 define('__MODULE__', "pmdomainby");
 
-define('SERVICE_PROFILE_XML', __DIR__ . ',,/etc/xml/service_profile.xml' );
+define('SERVICE_PROFILE_XML', __DIR__ . '/service_profile.xml' );
 define('REGISTRAR_API_URL', 'https://dms1.ok.by/api/v1/json-rpc');
 define('PROFILE_FORM_VALUES_PATTERN', '/(?<=(?:<\/slist>)|(?:<\/messages>))(?:<(\w*)\s?[\w\s\d"=]*?>.*?<\/\1>)+(?=<\/doc>)/');
 
@@ -277,7 +277,7 @@ try {
 		$features_node->addChild("feature")->addAttribute("name", "tune_service_profile");		// Tune service profile (domain contact) form while order service
 		$features_node->addChild("feature")->addAttribute("name", "validate_service_profile");  // Validate provided by customer basic or additional service profile parameters
 		$features_node->addChild("feature")->addAttribute("name", "update_ns");					// Change list of domain nameserver
-		$features_node->addChild("feature")->addAttribute("name", "whois");						// Return WHOIS domain data. Used by BILLmanager for checking domain availability and in lists
+		$features_node->addChild("feature")->addAttribute("name", "whois");						// Return WHOIS domain data. 
 		echo $config_xml->asXML();
 
 	} elseif ($command == "check_connection") {
@@ -319,14 +319,49 @@ try {
 		$registrar_client = GetRegistrarClient($options['module']);
 		$available = $registrar_client->CheckDomain($domain);
 		
-		if ($available) {
+		if ( $available) {
 			$whois_xml->addChild("whois", "Object does not exist");
 		} else {
-			$whois = "Domain: " . $domain . "\n";
-			$whois .= "Status: " . 'active' . "\n";
-			$whois_xml->addChild("whois", $whois);
+            $r_info = $registrar_client->WhoIs($domain);
+            
+			$whois[0] = "Домен: $domain" . PHP_EOL;
+			$whois[1] = 'Статус: активен' . PHP_EOL;
+            
+            $r_type = $r_info['r_type'];
+            if ( 'person' == $r_type || 'ip' == $r_type ) {
+                $whois[2] = "Тип владельца: " . ( 'person' == $r_type ? ' Физ. лицо' : 'ИП') . PHP_EOL;
+                $whois[16] = "Номер паспорта: {$r_info['passport_nmbr']}" . PHP_EOL;
+                $whois[17] = "Кем выдан паспорт: {$r_info['passport_org']}" . PHP_EOL;
+                $whois[18] = "Дата выдачи паспорта: {$r_info['passport_date']}" . PHP_EOL;
+                $whois[19] = "Персональный идентификационный номер: {$r_info['passport_personalnmbr']}" . PHP_EOL;
+            }
+            if ( 'organization' ==  $r_type || 'ip' == $r_type ) {
+                $whois[2] = "Тип владельца: " . ( 'organization' == $r_type ? ' Юр. лицо' : 'ИП') . PHP_EOL;
+                if ( 'organization' ==  $r_type ) {
+                    $whois[4] = "ФИО руководителя: {$r_info['r_chief']}" > PHP_EOL;
+                }
+                $whois[7] = "УНП: {$r_info['r_unp']}" . PHP_EOL;
+                if ( 'BY' == $r_info['address_country'] ) {
+                    $whois[20] = "Регистрационный номер ЕГР или УНП : {$r_info['egr_num']}" . PHP_EOL;
+                    $whois[21] = "Кем выполнена госрегистрация: {$r_info['egr_org']}" . PHP_EOL;
+                    $whois[22] = "Номер решения о госрегистрации: {$r_info['egr_resh']}" . PHP_EOL;
+                    $whois[23] = "Дата решения о госрегистрации: {$r_info['egr_date']}" . PHP_EOL;
+                }
+            }
+            
+            $whois[3] = "Имя владельца: {$r_info['r_name']}" . PHP_EOL;
+            $whois[5] = "Контактный телефон: {$r_info['r_phone']}" . PHP_EOL;
+            $whois[6] = "Адрес электронной почты: {$r_info['r_email']}" . PHP_EOL;
+            $whois[8] = "2­х буквенный код страны: {$r_info['address_country']}" . PHP_EOL;
+            $whois[9] = "Город или населённый пункт: {$r_info['address_city']}" . PHP_EOL;
+            $whois[10] = "Область, район, провинция: {$r_info['address_region']}" . PHP_EOL;
+            $whois[11] = "Почтовый индекс: {$r_info['address_index']}" . PHP_EOL;
+            $whois[12] = "Улица: {$r_info['address_street']}" . PHP_EOL;
+            $whois[13] = "Номер строения: {$r_info['address_building']}" . PHP_EOL;
+            $whois[14] = "Номер комнаты, квартиры, офиса: {$r_info['address_office']}" . PHP_EOL;
 		}
-				
+
+        $whois_xml->addChild("whois", implode($whois));
 		echo $whois_xml->asXML();
 		
 	} elseif ($command == "tune_service_profile") {
@@ -624,4 +659,4 @@ try {
 		}
 	}
 	echo $e;
-}
+} 

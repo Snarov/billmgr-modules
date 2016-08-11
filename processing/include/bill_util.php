@@ -196,16 +196,22 @@ class RegistrarClient {
 		}
 	}
 	
-
-
-
-
+// 	public function __call($name, $arguments) {
+// 		return $this->client->__call($name, $arguments);
+// 	}
+// 	
 	public function CheckDomain($domain) {
 		$response = $this->client->CheckDomain( ['domain' => $domain ] );
 		
 		return $response['available'];
 		
 	}
+
+    public function WhoIs( $domain ) {
+        $response = $this->client->InfoDomain( ['domain' => $domain ] );
+
+        return isset( $response['s_registrant'] ) ? $response['s_registrant'] : false;
+    }
 	
 	public function CreateDomain($domain, $period, $ns, $registrant_info) {
 		try{
@@ -216,7 +222,7 @@ class RegistrarClient {
 															's_ns' => $ns,
 														) );
 														
-			return $result['result'] ? true : $response['s_state']['status'] === 'OK';
+			return $response['s_state']['status'] == 'OK';
 		} catch( Exception $ex ){
 			return false;
 		}
@@ -230,7 +236,7 @@ class RegistrarClient {
 														'exDateYear' => $ex_year,
 													  ) );
 													  
-		return $result['result'] ? true : $response['s_state']['status'] === 'OK';
+		return $response['s_state']['status'] === 'OK';
 		}	catch(Exception $ex){
 			return false;
 		}
@@ -243,7 +249,7 @@ class RegistrarClient {
 														's_registrant' => $registrant_info,
 													  ) );
 													  
-		return $result['result'] ? true : $response['s_state']['status'] === 'OK';
+		return $response['s_state']['status'] === 'OK';
 		} catch(Exception $ex){
 			return false;
 		}
@@ -256,7 +262,7 @@ class RegistrarClient {
 														's_ns' => $ns,
 													  ) );
 													  
-		return $result['result'] ? true : $response['s_state']['status'] === 'OK';
+		return  $response['s_state']['status'] === 'OK';
 		} catch(Exception $ex){
 			return false;
 		}
