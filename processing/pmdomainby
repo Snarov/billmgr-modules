@@ -278,7 +278,10 @@ try {
 		$features_node->addChild("feature")->addAttribute("name", "validate_service_profile");  // Validate provided by customer basic or additional service profile parameters
 		$features_node->addChild("feature")->addAttribute("name", "update_ns");					// Change list of domain nameserver
 		$features_node->addChild("feature")->addAttribute("name", "whois");						// Return WHOIS domain data. 
+<<<<<<< HEAD
 		echo $config_xml->asXML();
+=======
+>>>>>>> 7e9bbd405cebcd4eb813f81f30a9713cebfe1ec0
 
 	} elseif ($command == "check_connection") {
 		$stdin_input = file_get_contents('php://stdin');
