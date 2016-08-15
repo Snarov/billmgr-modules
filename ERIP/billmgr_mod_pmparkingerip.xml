@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mgrdata>
+  <plugin name="pmparkingerip">
+    <group>payment_method</group>
+    <msg name="desc_short" lang="ru">ЕРИП (Parking.by)</msg>
+    <msg name="desc_short" lang="en">ERIP (Parking.by)</msg>
+    <msg name="desc_full" lang="ru">ЕРИП через API от Parking.by</msg>
+    <msg name="desc_full" lang="en">ERIP via Parking.by API</msg>
+    <msg name="price" lang="ru">Бесплатно</msg>
+    <msg name="price" lang="en">Free</msg>
+  </plugin>
+
+  <metadata name="paymethod.edit.parkingerip" type="form">
+    <form>
+      <page name="methodprops">
+        <field name="API_USER">
+          <input name="API_USER" private="yes" required="yes" type="text"/>
+        </field>
+        <field name="API_PASSWORD">
+          <input name="API_PASSWORD" private="yes" required="yes" type="password"/>
+        </field>
+        <field name="API_KEY">
+          <input name="API_KEY" private="yes" required="yes" type="text"/>
+        </field>
+	<field name="ERIP_ID">
+          <input name="ERIP_ID" private="no" required="yes" type="text"/>
+        </field>
+      </page>
+    </form>
+  </metadata>
+
+  <lang name="en">
+    <messages name="label_paymethod">
+      <msg name="pmparkingerip">ERIP (Parking.by)</msg>
+      <msg name="module_pmparkingerip">ERIP (Parking.by)</msg>
+    </messages>
+    <messages name="paymethod.edit.parkingerip">
+      <msg name="API_USER">API username</msg>
+      <msg name="hint_API_ID">Username from Parking.by API account</msg>
+      <msg name="API_PASSWORD">API password</msg>
+      <msg name="hint_API_PASSWORD">Password from Parking.by API account</msg>
+      <msg name="API_KEY">API secret key</msg>
+      <msg name="hint_API_KEY">Secret key for API requests authentication</msg>
+      <msg name="ERIP_ID">ERIP ID</msg>
+      <msg name="hint_ERIP_ID">Service ID in ERIP system</msg>
+    </messages>
+  </lang>
+
+  <lang name="ru">
+      <messages name="label_paymethod">
+      <msg name="pmparkingerip">ЕРИП (Parking.by)</msg>
+      <msg name="module_pmparkingerip">ЕРИП (Parking.by)</msg>
+    </messages>
+    <messages name="paymethod.edit.parkingerip">
+      <msg name="API_USER">имя пользователя API</msg>
+      <msg name="hint_API_ID">Имя пользователя аккаунта API Parking.by</msg>
+      <msg name="API_PASSWORD">пароль API</msg>
+      <msg name="hint_API_PASSWORD">Пароль аккаунта API Parking.b</msg>
+      <msg name="API_KEY">Секретный ключ API</msg>
+      <msg name="hint_API_KEY">Секретный ключ для проеврки подлиности сообщений, передаваемых API</msg>
+      <msg name="ERIP_ID">ЕРИП ID</msg>
+      <msg name="hint_ERIP_ID">Идентификатор услуги в ЕРИП</msg>
+    </messages>
+  </lang>
+</mgrdata>
