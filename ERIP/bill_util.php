@@ -149,7 +149,7 @@ function ClientIp() {
 	return $client_ip;
 }
 
-function VerifyHMAC($param) {
+function VerifyHMAC($param, $paymethodId) {
 
     if(!function_exists('hash_equals')) {
         function hash_equals($str1, $str2) {
@@ -164,7 +164,8 @@ function VerifyHMAC($param) {
         }
     }
 
-    $paymethod = LocalQuery('paymethod.edit', array('elid' => PAYMETHOD_ID, ));
+    $paymethod = LocalQuery('paymethod.edit', array('elid' => $paymethodId, ));
+
     $secret_key = (string)$paymethod->API_KEY[0];
 
     $current_time = time();
@@ -173,9 +174,10 @@ function VerifyHMAC($param) {
     }
 
     $hmac_text = $param['service_id'] . $param['bill'] . $param['account'] . $param['status'] . $param['amount'] . $param['time'];
-    Debug("hmac_text: $hmac_text");
+    //Debug("hmac_text: $hmac_text");
     $hmac = hash_hmac(HMAC_ALG, $hmac_text, $secret_key);
-    Debug("hmac: $hmac");
+    //Debug("secret key: $secret_key");
+    //Debug("hmac: $hmac");
     return hash_equals($hmac,  $param['hmac']);
 }
 

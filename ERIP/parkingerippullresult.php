@@ -19,8 +19,16 @@ $hmac = $param["hmac"];
 
 //TODO проверка идентификатора услуги
 
+if ( ! $paymethodId = GetEripPaymethodId() ) {
+   Error("Не удалось определить индентификатор услуги");
+   http_response_code(500);
+   $out_xml->addChild("status_code", "500");
+   echo $out_xml->asXML();
+//    Debug("out: ". $out_xml->asXML());
+   die(1);
+}
 // Проверка HMAC
-if ( ! VerifyHMAC($param) ) {
+if ( ! VerifyHMAC($param, $paymethodId) ) {
    Error("HMAC неверен. Параметры запроса:" . print_r($param, true));
    http_response_code(403);
    $out_xml->addChild("status_code", "403");
@@ -47,13 +55,13 @@ if ( empty($user) ) {
 
 }
 
-$paymethodId = GetEripPaymethodId();
+
 $payment = LocalQuery('payment.add', array('paymethod' => $paymethodId, 'amount' => $amount, 'sok' => 'yes', 'su' => $user['name'], ));
 $payed = LocalQuery('payment.setpaid', array('elid' => $payment->payment_id,));
 
 if ( isset($payed->ok) && $payed->tparams->elid ) {
     echo "Content-Type: text/xml\n\n";
-//     Debug("Оплата прошла успешно. Параметры запроса:"  . print_r($param, true));
+    //     Debug("Оплата прошла успешно. Параметры запроса:"  . print_r($param, true));
     die(0);
 } else {
     Error("Не удалось провести платеж. Параметры запроса: " . print_r($param, true));
