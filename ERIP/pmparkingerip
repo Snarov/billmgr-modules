@@ -75,24 +75,24 @@ try {
 		Debug($ERIP_ID);
 
 		if (!preg_match("/^[a-zA-Z0-9]+$/", $API_USER)) {
-			throw new Error("value", "API_USER", $API_USER);
+			throw new billmgrErrorException("value", "API_USER", $API_USER);
 		}
 
 		if (!preg_match("/^[a-zA-Z0-9]+$/", $API_PASSWORD)) {
-			throw new Error("value", "API_PASSWORD", $API_PASSWORD);
+			throw new BillmgrErrorExxeption("value", "API_PASSWORD", $API_PASSWORD);
 		}
         
         if (!preg_match("/^[a-z0-9]{128}$/", $API_KEY)) {
-			throw new Error("value", "API_KEY", $API_KEY);
+			throw new BillmgrErrorException("value", "API_KEY", $API_KEY);
 		}
 
          if (!preg_match("/^[0-9]{1,8}$/", $ERIP_ID)) {
-			throw new Error("value", "ERIP_ID", $ERIP_ID);
+			throw new BillmgrErrorException("value", "ERIP_ID", $ERIP_ID);
 		}
 
 		echo $paymethod_form->asXML();
 	} else {
-		throw new Error("unknown command");
+		throw new BillmgrError("unknown command");
 	}
 } catch (Exception $e) {
 	echo $e;

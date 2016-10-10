@@ -5,11 +5,13 @@ set_include_path(get_include_path() . PATH_SEPARATOR . "/usr/local/mgr5/include/
 define('__MODULE__', "pmparkingerip");
 define('ALLOWED_TIME_DELTA', 300);
 
+define('COMMISSION_PERCENTS', 2);
+
 require_once 'bill_util.php';
 
 $param = CgiInput(true);
 
-$account = 9999999997 - $param["account"]; //tmp
+$account = $param["account"]; 
 $status = $param["status"];
 $amount = $param["amount"];
 $time = $param["time"];
@@ -55,7 +57,9 @@ if ( empty($user) ) {
 
 }
 
-
+//Billmgr не умеет правильно считать комиссию, так что считаем сумму за вычетом комиссии сами
+$amount = round ( $amount * ( 1 - COMMISSION_PERCENTS / 100 ) , 2);
+Debug("amount: $amount");
 $payment = LocalQuery('payment.add', array('paymethod' => $paymethodId, 'amount' => $amount, 'sok' => 'yes', 'su' => $user['name'], ));
 $payed = LocalQuery('payment.setpaid', array('elid' => $payment->payment_id,));
 

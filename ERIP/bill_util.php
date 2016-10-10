@@ -184,11 +184,11 @@ function VerifyHMAC($param, $paymethodId) {
 
 function GetUserByAccount($account) {
     $users_xml_list = LocalQuery('user', array());
-    Debug('Ищется Пользователь номер' . $account);
+//    Debug('Ищется Пользователь номер' . $account);
     $user = array();
     foreach($users_xml_list->elem as $elem) {
-        Debug('Пользователь номер' . $elem->account[1]);
-        if ( $elem->account[1] == $account ) {
+//        Debug('Пользователь номер' . $elem->account[1]);
+        if ( $elem->account_id == $account ) {
             $user['name'] = $elem->name;
             $user['id'] = $elem->id;
             break;
@@ -198,7 +198,7 @@ function GetUserByAccount($account) {
     return $user;
 }
 
-class Error extends Exception
+class BillmgrErrorException extends Exception
 {
 	private $m_object = "";
 	private $m_value = "";
