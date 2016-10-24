@@ -71,7 +71,7 @@ function ItemParam($db, $iid) {
 					   JOIN tld ON tld.id = p.intname
 					   WHERE i.id=" . $iid);
 	if ($res == FALSE)
-		throw new Error("query", $db->error);
+		throw new BillmgrError("query", $db->error);
     $param = $res->fetch_assoc();
     $param_res = $db->query("SELECT intname, value FROM itemparam WHERE item = ".$iid);
     while ($row = $param_res->fetch_assoc()) {
@@ -87,7 +87,7 @@ function ItemProfiles($db, $iid, $module) {
 					   LEFT JOIN service_profile2processingmodule sp2p ON sp2p.service_profile = sp2i.service_profile AND sp2i.type = sp2p.type AND sp2p.processingmodule = " . $module . "
 					   WHERE i.id=" . $iid);
 	if ($res == FALSE){
-		throw new Error("query", $db->error);
+		throw new BillmgrError("query", $db->error);
 	}
 	while ($row = $res->fetch_assoc()) {
     	$param[$row["type"]] = array();
@@ -184,7 +184,7 @@ function PrepareRegistrantInfo($rawInfo){
 	
 	$registrant_info = array();
 	
-	$registrant_info['r_phone'] = $rawInfo['phone'];
+	$registrant_info['r_phone'] = str_replace(['(', ')'], '', $rawInfo['phone']);
 	$registrant_info['r_email'] = $rawInfo['email'];
 	$registrant_info['address_country'] = $country_codes_map[$rawInfo['location_country']];
 	$registrant_info['address_city'] = $rawInfo['location_city'];
@@ -211,6 +211,7 @@ function PrepareRegistrantInfo($rawInfo){
 			if($registrant_info['address_country'] === 'BY'){
 				
 				$registrant_info['egr_num'] = $rawInfo['egr_num'];
+                $registrant_info['r_unp'] = $rawInfo['egr_num'];
 				$registrant_info['egr_org'] = $rawInfo['egr_org'];
 				$registrant_info['egr_date'] = $rawInfo['egr_date'];
 			}
@@ -222,7 +223,7 @@ function PrepareRegistrantInfo($rawInfo){
 			$registrant_info['passport_org'] = $rawInfo['passport_org'];
 			$registrant_info['passport_date'] = $rawInfo['passport_date'];
 			$registrant_info['passport_personalnmbr'] = $rawInfo['passport_personalnmbr'];
-			$registrant_info['r_unp'] = $rawInfo['ip_unp'];
+			$registrant_info['r_unp'] = $rawInfo['ip_egr_num'];
 			$registrant_info['egr_org'] = $rawInfo['ip_egr_org'];
 			$registrant_info['egr_num'] = $rawInfo['ip_egr_num'];
 			$registrant_info['egr_date'] = $rawInfo['ip_egr_date'];
@@ -272,16 +273,16 @@ try {
 		$features_node->addChild("feature")->addAttribute("name", "setparam");					// Change param of service. Usually not used for domains
 		$features_node->addChild("feature")->addAttribute("name", "prolong");					// Prolong service. Simple chnage expiredate of domain in DB
 
-
+        //$features_node->addChild("feature")->addAttribute("name", "sync_item"); Добавить синхронизацию с регистратором
 		$features_node->addChild("feature")->addAttribute("name", "get_contact_type");			// Get contact type needed for TLD and other specific TLD parameters
 		$features_node->addChild("feature")->addAttribute("name", "tune_service_profile");		// Tune service profile (domain contact) form while order service
 		$features_node->addChild("feature")->addAttribute("name", "validate_service_profile");  // Validate provided by customer basic or additional service profile parameters
 		$features_node->addChild("feature")->addAttribute("name", "update_ns");					// Change list of domain nameserver
 		$features_node->addChild("feature")->addAttribute("name", "whois");						// Return WHOIS domain data. 
-<<<<<<< HEAD
+
 		echo $config_xml->asXML();
-=======
->>>>>>> 7e9bbd405cebcd4eb813f81f30a9713cebfe1ec0
+
+
 
 	} elseif ($command == "check_connection") {
 		$stdin_input = file_get_contents('php://stdin');
@@ -294,7 +295,7 @@ try {
 			Debug($stdin_input);
 			$registar_client->CheckDomain( 'test.by' );
 		} catch (Exception $e) {
-			throw new Error("invalid_login_or_passwd");
+			throw new BillmgrError("invalid_login_or_passwd");
 		}
 		echo $default_xml_string;
 	} elseif ($command == "get_contact_type") {
@@ -325,61 +326,61 @@ try {
 		if ( $available) {
 			$whois_xml->addChild("whois", "Object does not exist");
 		} else {
-            $r_info = $registrar_client->WhoIs($domain);
-            
-			$whois[0] = "Домен: $domain" . PHP_EOL;
-			$whois[1] = 'Статус: активен' . PHP_EOL;
-            
-            $r_type = $r_info['r_type'];
-            if ( 'person' == $r_type || 'ip' == $r_type ) {
-                $whois[2] = "Тип владельца: " . ( 'person' == $r_type ? ' Физ. лицо' : 'ИП') . PHP_EOL;
-                $whois[16] = "Номер паспорта: {$r_info['passport_nmbr']}" . PHP_EOL;
-                $whois[17] = "Кем выдан паспорт: {$r_info['passport_org']}" . PHP_EOL;
-                $whois[18] = "Дата выдачи паспорта: {$r_info['passport_date']}" . PHP_EOL;
-                $whois[19] = "Персональный идентификационный номер: {$r_info['passport_personalnmbr']}" . PHP_EOL;
-            }
-            if ( 'organization' ==  $r_type || 'ip' == $r_type ) {
-                $whois[2] = "Тип владельца: " . ( 'organization' == $r_type ? ' Юр. лицо' : 'ИП') . PHP_EOL;
-                if ( 'organization' ==  $r_type ) {
-                    $whois[4] = "ФИО руководителя: {$r_info['r_chief']}" > PHP_EOL;
-                }
-                $whois[7] = "УНП: {$r_info['r_unp']}" . PHP_EOL;
-                if ( 'BY' == $r_info['address_country'] ) {
-                    $whois[20] = "Регистрационный номер ЕГР или УНП : {$r_info['egr_num']}" . PHP_EOL;
-                    $whois[21] = "Кем выполнена госрегистрация: {$r_info['egr_org']}" . PHP_EOL;
-                    $whois[22] = "Номер решения о госрегистрации: {$r_info['egr_resh']}" . PHP_EOL;
-                    $whois[23] = "Дата решения о госрегистрации: {$r_info['egr_date']}" . PHP_EOL;
-                }
-            }
-            
-            $whois[3] = "Имя владельца: {$r_info['r_name']}" . PHP_EOL;
-            $whois[5] = "Контактный телефон: {$r_info['r_phone']}" . PHP_EOL;
-            $whois[6] = "Адрес электронной почты: {$r_info['r_email']}" . PHP_EOL;
-            $whois[8] = "2­х буквенный код страны: {$r_info['address_country']}" . PHP_EOL;
-            $whois[9] = "Город или населённый пункт: {$r_info['address_city']}" . PHP_EOL;
-            $whois[10] = "Область, район, провинция: {$r_info['address_region']}" . PHP_EOL;
-            $whois[11] = "Почтовый индекс: {$r_info['address_index']}" . PHP_EOL;
-            $whois[12] = "Улица: {$r_info['address_street']}" . PHP_EOL;
-            $whois[13] = "Номер строения: {$r_info['address_building']}" . PHP_EOL;
-            $whois[14] = "Номер комнаты, квартиры, офиса: {$r_info['address_office']}" . PHP_EOL;
-		}
+            try {
+                $r_info = $registrar_client->WhoIs($domain);
 
-        $whois_xml->addChild("whois", implode($whois));
-		echo $whois_xml->asXML();
+                $whois[0] = "Домен: $domain" . PHP_EOL;
+                $whois[1] = 'Статус: активен' . PHP_EOL;
+            
+                $r_type = $r_info['r_type'];
+                if ( 'person' == $r_type || 'ip' == $r_type ) {
+                    $whois[2] = "Тип владельца: " . ( 'person' == $r_type ? ' Физ. лицо' : 'ИП') . PHP_EOL;
+                    $whois[16] = "Номер паспорта: {$r_info['passport_nmbr']}" . PHP_EOL;
+                    $whois[17] = "Кем выдан паспорт: {$r_info['passport_org']}" . PHP_EOL;
+                    $whois[18] = "Дата выдачи паспорта: {$r_info['passport_date']}" . PHP_EOL;
+                    $whois[19] = "Персональный идентификационный номер: {$r_info['passport_personalnmbr']}" . PHP_EOL;
+                }
+                if ( 'organization' ==  $r_type || 'ip' == $r_type ) {
+                    $whois[2] = "Тип владельца: " . ( 'organization' == $r_type ? ' Юр. лицо' : 'ИП') . PHP_EOL;
+                    if ( 'organization' ==  $r_type ) {
+                        $whois[4] = "ФИО руководителя: {$r_info['r_chief']}" > PHP_EOL;
+                    }
+                    $whois[7] = "УНП: {$r_info['r_unp']}" . PHP_EOL;
+                    if ( 'BY' == $r_info['address_country'] ) {
+                        $whois[20] = "Регистрационный номер ЕГР или УНП : {$r_info['egr_num']}" . PHP_EOL;
+                        $whois[21] = "Кем выполнена госрегистрация: {$r_info['egr_org']}" . PHP_EOL;
+                        $whois[22] = "Номер решения о госрегистрации: {$r_info['egr_resh']}" . PHP_EOL;
+                        $whois[23] = "Дата решения о госрегистрации: {$r_info['egr_date']}" . PHP_EOL;
+                    }
+                }
+            
+                $whois[3] = "Имя владельца: {$r_info['r_name']}" . PHP_EOL;
+                $whois[5] = "Контактный телефон: {$r_info['r_phone']}" . PHP_EOL;
+                $whois[6] = "Адрес электронной почты: {$r_info['r_email']}" . PHP_EOL;
+                $whois[8] = "2­х буквенный код страны: {$r_info['address_country']}" . PHP_EOL;
+                $whois[9] = "Город или населённый пункт: {$r_info['address_city']}" . PHP_EOL;
+                $whois[10] = "Область, район, провинция: {$r_info['address_region']}" . PHP_EOL;
+                $whois[11] = "Почтовый индекс: {$r_info['address_index']}" . PHP_EOL;
+                $whois[12] = "Улица: {$r_info['address_street']}" . PHP_EOL;
+                $whois[13] = "Номер строения: {$r_info['address_building']}" . PHP_EOL;
+                $whois[14] = "Номер комнаты, квартиры, офиса: {$r_info['address_office']}" . PHP_EOL;
+            
+                $whois_xml->addChild("whois", implode($whois));
+            } catch (JsonRPC\ResponseException $ex){
+                $whois[0] = "Домен: $domain" . PHP_EOL;
+                $whois[1] = 'Статус: активен' . PHP_EOL;
+                $whois_xml->addChild("whois", implode($whois));
+                
+                Debug("exception: $ex");
+            }
+        }
+    	echo $whois_xml->asXML();
 		
 	} elseif ($command == "tune_service_profile") {
 		$tld = $options['param'];
 		$contact_type = $options['value'];
 		
-		ob_start();
-		var_dump($options);
-		$vardump = ob_get_clean();
-		ob_end_clean();
-		Debug($vardump);
-		$stdin_input = file_get_contents('php://stdin');
-
-
-
+    	$stdin_input = file_get_contents('php://stdin');
 		$service_profile_form_xml = file_get_contents(SERVICE_PROFILE_XML);
 		
 		if ( empty($service_profile_form_xml ) ) {
@@ -397,7 +398,6 @@ try {
 														array('service_profile.edit', '', ''),
 														$service_profile_form_xml
 														);
-				Debug($service_profile_form_xml);
 			} else{
 				Debug('Malformed input');
 				echo $default_xml_string;
@@ -414,42 +414,42 @@ try {
 		Debug("validate_profile");
 		
  		$param_xml = simplexml_load_string(file_get_contents('php://stdin'));
- 		
+        
  		if( 1 == $param_xml->customer_profiletype  || 3 == $param_xml->customer_profiletype ) {
 			if ( strlen($param_xml->customer_passport) != PASSPORT_NMBR_LEN ){
-				throw new Error("passport_len", "customer_passport");
+				throw new BillmgrError("passport_len", "customer_passport");
 			}
 			if ( strlen($param_xml->customer_passport_personalnmbr) != PASSPORT_PERSONALNMBR_LEN ){
-				throw new Error("passport_len_personalnmbr", "customer_passport_perosnalnmbr");
+				throw new BillmgrError("passport_len_personalnmbr", "customer_passport_perosnalnmbr");
 			}
 			if ( strtotime($param_xml->customer_passport_date) > time() ){
-				throw new Error("date_incorrect", "customer_passport_date");
+				throw new BillmgrError("date_incorrect", "customer_passport_date");
 			}
 		} else if( 2 == $param_xml->customer_profiletype && BY == $param_xml->customer_location_country) {
 			if( empty($param_xml->customer_egr_num) ) {
-				throw new Error("by_company_erg", "customer_egr_num");
+				throw new BillmgrError("by_company_erg", "customer_egr_num");
 			}else if ( strlen($param_xml->customer_egr_num) != EGR_LEN ){
-				throw new Error("egr_len", "customer_egr_num");
+				throw new BillmgrError("egr_len", "customer_egr_num");
 			}
 			if( empty($param_xml->customer_egr_org ) ){
-				throw new Error("by_company_erg", "customer_egr_org");
+				throw new BillmgrError("by_company_erg", "customer_egr_org");
 			}
 			if( empty( $param_xml->customer_egr_date  ) ){
-				throw new Error("by_company_erg", "customer_egr_date");
+				throw new BillmgrError("by_company_erg", "customer_egr_date");
 			} else if ( strtotime($param_xml->customer_egr_date) > time() ){
-				throw new Error("date_incorrect", "customer_egr_date");
+				throw new BillmgrError("date_incorrect", "customer_egr_date");
 			}
 		}
 		
 		if( 3 == $param_xml->customer_profiletype ) {
 			if ( strlen($param_xml->customer_ip_unp) != UNP_LEN ){
-				throw new Error("unp_len", "customer_ip_unp");
+				throw new BillmgrError("unp_len", "customer_ip_unp");
 			}
 			if ( strlen($param_xml->customer_ip_egr_num) != EGR_LEN ){
-				throw new Error("egr_len", "customer_ip_egr_num");
+				throw new BillmgrError("egr_len", "customer_ip_egr_num");
 			}
 			if ( strtotime($param_xml->customer_ip_egr_date) > time() ){
-				throw new Error("date_incorrect", "customer_ip_egr_date");
+				throw new BillmgrError("date_incorrect", "customer_ip_egr_date");
 			}
 		}
  		
@@ -465,6 +465,7 @@ try {
 			
 		$registrant_info = PrepareRegistrantInfo($profile_params['customer']);
 
+        $period = $item_param['item_period'] / 12;
 		$ns = array();
 		$ns_num = 0;
 		while (array_key_exists("ns" . $ns_num, $item_param) && !empty($item_param["ns" . $ns_num]) ) {
@@ -475,10 +476,10 @@ try {
 		
 		$registar_client = GetRegistrarClient($item_param["item_module"]);
 	
-		if ($registar_client->CreateDomain($item_param['domain'], 1, $ns, $registrant_info )) {
+		if ($registar_client->CreateDomain($item_param['domain'], $period, $ns, $registrant_info )) {
 			LocalQuery("domain.open", array("elid" => $item, "sok" => "ok"));
 		} else {
-			throw new Error("query", "Ошибка создания домена");
+			throw new BillmgrError("query", "Ошибка создания домена");
 		}
 	} elseif ($command == "suspend") {
 
@@ -527,7 +528,7 @@ try {
 			LocalQuery("service.postprolong", array("elid" => $item, "sok" => "ok", ));
 		} else {
 			LocalQuery("service.postprolong", array("elid" => $item, ));
-			throw new Error("query", "Ошибка продления домена");
+			throw new BillmgrError("query", "Ошибка продления домена");
 		}
 		
 	} elseif ($command == "cancel_prolong") {
@@ -565,7 +566,7 @@ try {
 		$registar_client = GetRegistrarClient($item_param["item_module"]);
 		
 		if ( ! $registar_client->UpdateNS($item_param['domain'], $ns) ) {
-			throw new Error('query', 'Ошибка измения серверов имен');
+			throw new BillmgrError('query', 'Ошибка измения серверов имен');
 		}
 	} elseif ($command == "import") {
 

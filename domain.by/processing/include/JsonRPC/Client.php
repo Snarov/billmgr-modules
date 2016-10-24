@@ -124,7 +124,7 @@ class Client
      * @param  array     $headers             Custom HTTP headers
      * @param  bool      $suppress_errors     Suppress exceptions
      */
-    public function __construct($url, $timeout = 3, $headers = array(), $suppress_errors = false)
+    public function __construct($url, $timeout = 30, $headers = array(), $suppress_errors = false)
     {
         $this->url = $url;
         $this->timeout = $timeout;

@@ -120,7 +120,7 @@ function RandomStr($size = 8) {
     }
     return $result;
 }
-class Error extends Exception
+class BillmgrError extends Exception
 {
 	private $m_object = "";
 	private $m_value = "";
@@ -222,7 +222,7 @@ class RegistrarClient {
 															's_ns' => $ns,
 														) );
 														
-			return $response['s_state']['status'] == 'OK';
+			return $response['result'] == true;
 		} catch( Exception $ex ){
 			return false;
 		}
@@ -236,7 +236,7 @@ class RegistrarClient {
 														'exDateYear' => $ex_year,
 													  ) );
 													  
-		return $response['s_state']['status'] === 'OK';
+		return $response['result'] == true;
 		}	catch(Exception $ex){
 			return false;
 		}
@@ -249,7 +249,7 @@ class RegistrarClient {
 														's_registrant' => $registrant_info,
 													  ) );
 													  
-		return $response['s_state']['status'] === 'OK';
+		return $response['result'] == true;
 		} catch(Exception $ex){
 			return false;
 		}
@@ -262,7 +262,7 @@ class RegistrarClient {
 														's_ns' => $ns,
 													  ) );
 													  
-		return  $response['s_state']['status'] === 'OK';
+		return  $response['result'] == true;
 		} catch(Exception $ex){
 			return false;
 		}
