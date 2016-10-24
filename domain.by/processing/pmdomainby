@@ -42,127 +42,6 @@ $longopts  = array
 
     "tld:",
     "searchstring:",
-);
-$options = getopt("", $longopts);
-
-
-function GetConnection() {
-	$param = LocalQuery("otparamlist", array());
-	$result = $param->xpath('//elem/*');
-	$param_map = array();
-	$param_map["DBHost"] = "localhost";
-	$param_map["DBUser"] = "root";
-	$param_map["DBPassword"] = "";
-	$param_map["DBName"] = "billmgr";
-	while(list( , $node) = each($result)) {
-	    $param_map[$node->getName()] = $node;
-	}
-	
-	$db = new DB($param_map["DBHost"], $param_map["DBUser"], $param_map["DBPassword"], $param_map["DBName"]);
-	$db->set_charset('utf8');
-	
-	return $db;
-}
-function ItemParam($db, $iid) {
-	$res = $db->query("SELECT i.id AS item_id, i.processingmodule AS item_module, i.period AS item_period, i.status AS item_status, i.expiredate, 
-							  tld.name AS tld_name 
-					   FROM item i 
-					   JOIN pricelist p ON p.id = i.pricelist 
-					   JOIN tld ON tld.id = p.intname
-					   WHERE i.id=" . $iid);
-	if ($res == FALSE)
-		throw new Error("query", $db->error);
-    $param = $res->fetch_assoc();
-    $param_res = $db->query("SELECT intname, value FROM itemparam WHERE item = ".$iid);
-    while ($row = $param_res->fetch_assoc()) {
-    	$param[$row["intname"]] = $row["value"];
-    }
-    return $param;
-}
-function ItemProfiles($db, $iid, $module) {
-	$param = array();
-	$res = $db->query("SELECT sp2i.service_profile AS service_profile, sp2i.type AS type, sp2p.externalid AS externalid, sp2p.externalpassword AS externalpassword 
-					   FROM item i 
-					   JOIN service_profile2item sp2i ON sp2i.item = i.id 
-					   LEFT JOIN service_profile2processingmodule sp2p ON sp2p.service_profile = sp2i.service_profile AND sp2i.type = sp2p.type AND sp2p.processingmodule = " . $module . "
-					   WHERE i.id=" . $iid);
-	if ($res == FALSE){
-		throw new Error("query", $db->error);
-	}
-	while ($row = $res->fetch_assoc()) {
-    	$param[$row["type"]] = array();
-    	$param[$row["type"]]["externalid"] = $row["externalid"];
-    	$param[$row["type"]]["externalpassword"] = $row["externalpassword"];
-    	$param[$row["type"]]["service_profile"] = $row["service_profile"];
-    	$profile_res = $db->query("SELECT intname, value
-					   FROM service_profileparam
-					   WHERE service_profile=" . $row["service_profile"] . 
-					   " UNION " .
-					   "SELECT 'profiletype' AS intname, profiletype AS value FROM service_profile WHERE id=" . $row["service_profile"]);
-    	while ($profile_row = $profile_res->fetch_assoc()) {
-    		$param[$row["type"]][$profile_row["intname"]] = $profile_row["value"];
-    	}
-	}
-	
-	return $param;
-}
-function GetRegistrarClient($sid) {
-	if ($sid != "") {
-		$param = LocalQuery("processing.edit", array("elid" => $sid));
-		return new RegistrarClient(REGISTRAR_API_URL, $param->username, $param->password, DEBUG);
-	} else {
-		return new RegistrarClient(REGISTRAR_API_URL, "user", "password", DEBUG); // default connection
-	}
-}
-
-function PrepareRegistrantInfo($rawInfo){
-	
-	$country_codes_map = array(
-		"14" => "AU", 	"15" => "AT",
-		"16" => "AZ",	"2" => "AX",	"3" => "AL",
-        "4" => "DZ",	"5" => "AS",	"8" => "AI",	"7" => "AO",
-        "6" => "AD",	"10" => "AG",	"11" => "AR",	"12" => "AM",
-        "13" => "AW",	"1" => "AF",	"17" => "BS",	"19" => "BD",
-        "20" => "BB",	"18" => "BH",	"23" => "BZ",	"22" => "BE",
-        "24" => "BJ",	"25" => "BM",	"34" => "BG",	"27" => "BO",
-        "28" => "BA",	"29" => "BW",	"31" => "BR",	"32" => "IO",
-        "33" => "BN",	"30" => "BV",	"35" => "BF",	"36" => "BI",
-        "26" => "BT",	"237" => "VU",	"96" => "VA",	"232" => "GB",
-        "99" => "HU",	"238" => "VE",	"240" => "VG",	"241" => "VI",
-        "219" => "TL",	"239" => "VN",	"78" => "GA",	"94" => "HT",
-        "93" => "GY",	"79" => "GM",	"82" => "GH",	"87" => "GP",
-        "89" => "GT",	"91" => "GN",	"92" => "GW",	"81" => "DE",
-        "90" => "GG",	"83" => "GI",	"97" => "HN",	"98" => "HK",
-        "86" => "GD",	"85" => "GL",	"84" => "GR",	"80" => "GE",
-        "88" => "GU",	"59" => "DK",	"51" => "CD",	"111" => "JE",
-        "60" => "DJ",	"61" => "DM",	"62" => "DO",	"64" => "EG",
-        "245" => "ZM",	"243" => "EH",	"246" => "ZW",	"107" => "IL",
-        "101" => "IN",	"102" => "ID",	"112" => "JO",	"104" => "IQ",
-        "103" => "IR",	"105" => "IE",	"100" => "IS",	"206" => "ES",
-        "108" => "IT",	"244" => "YE",	"40" => "CV",	"113" => "KZ",
-        "41" => "KY",	"37" => "KH",	"38" => "CM",	"39" => "CA",
-        "148" => "MS",	"179" => "QA",	"114" => "KE",	"57" => "CY",
-        "115" => "KI",	"45" => "CN",	"116" => "KP",	"47" => "CC",
-        "48" => "CO",	"49" => "KM",	"50" => "CG",	"53" => "CR",
-        "54" => "CI",	"56" => "CU",	"118" => "KW",	"119" => "KG",
-        "120" => "LA",	"121" => "LV",	"123" => "LS",	"124" => "LR",
-        "122" => "LB",	"125" => "LY",	"127" => "LT",	"126" => "LI",
-        "128" => "LU",	"140" => "MU",	"139" => "MR",	"131" => "MG",
-        "141" => "YT",	"129" => "MO",	"130" => "MK",	"132" => "MW",
-        "133" => "MY",	"135" => "ML",	"134" => "MV",	"136" => "MT",
-        "149" => "MA",	"138" => "MQ",	"137" => "MH",	"142" => "MX",
-        "143" => "FM",	"150" => "MZ",	"144" => "MD",	"145" => "MC",
-        "146" => "MN",	"151" => "MM",	"152" => "NA",	"153" => "NR",
-        "154" => "NP",	"160" => "NE",	"161" => "NG",	"156" => "AN",
-        "155" => "NL",	"159" => "NI",	"162" => "NU",	"158" => "NZ",
-        "157" => "NC",	"165" => "NO",	"231" => "AE",	"166" => "OM",
-        "106" => "IM",	"163" => "NF",	"46" => "CX",	"185" => "SH",
-        "95" => "HM",	"52" => "CK",	"175" => "PN",	"242" => "WF",
-        "167" => "PK",	"168" => "PW",	"169" => "PS",	"170" => "PA",
-        "171" => "PG",	"172" => "PY",	"173" => "PE",	"176" => "PL",
-        "177" => "PT",	"178" => "PR",	"21" => "BY",	"180" => "RE",
-        "182" => "RU",	"183" => "RW",	"181" => "RO",	"65" => "SV",
-        "191" => "WS",	"192" => "SM",	"193" => "ST",	"194" => "SA",
         "211" => "SZ",	"164" => "MP",	"197" => "SC",	"184" => "BL",
         "188" => "MF",	"189" => "PM",	"195" => "SN",	"190" => "VC",
         "186" => "KN",	"187" => "LC",	"196" => "RS",	"199" => "SG",
@@ -278,10 +157,8 @@ try {
 		$features_node->addChild("feature")->addAttribute("name", "validate_service_profile");  // Validate provided by customer basic or additional service profile parameters
 		$features_node->addChild("feature")->addAttribute("name", "update_ns");					// Change list of domain nameserver
 		$features_node->addChild("feature")->addAttribute("name", "whois");						// Return WHOIS domain data. 
-<<<<<<< HEAD
+
 		echo $config_xml->asXML();
-=======
->>>>>>> 7e9bbd405cebcd4eb813f81f30a9713cebfe1ec0
 
 	} elseif ($command == "check_connection") {
 		$stdin_input = file_get_contents('php://stdin');
@@ -294,7 +171,7 @@ try {
 			Debug($stdin_input);
 			$registar_client->CheckDomain( 'test.by' );
 		} catch (Exception $e) {
-			throw new Error("invalid_login_or_passwd");
+			throw new BillmgrError("invalid_login_or_passwd");
 		}
 		echo $default_xml_string;
 	} elseif ($command == "get_contact_type") {
@@ -417,39 +294,39 @@ try {
  		
  		if( 1 == $param_xml->customer_profiletype  || 3 == $param_xml->customer_profiletype ) {
 			if ( strlen($param_xml->customer_passport) != PASSPORT_NMBR_LEN ){
-				throw new Error("passport_len", "customer_passport");
+				throw new BillmgrError("passport_len", "customer_passport");
 			}
 			if ( strlen($param_xml->customer_passport_personalnmbr) != PASSPORT_PERSONALNMBR_LEN ){
-				throw new Error("passport_len_personalnmbr", "customer_passport_perosnalnmbr");
+				throw new BillmgrError("passport_len_personalnmbr", "customer_passport_perosnalnmbr");
 			}
 			if ( strtotime($param_xml->customer_passport_date) > time() ){
-				throw new Error("date_incorrect", "customer_passport_date");
+				throw new BillmgrError("date_incorrect", "customer_passport_date");
 			}
 		} else if( 2 == $param_xml->customer_profiletype && BY == $param_xml->customer_location_country) {
 			if( empty($param_xml->customer_egr_num) ) {
-				throw new Error("by_company_erg", "customer_egr_num");
+				throw new BillmgrError("by_company_erg", "customer_egr_num");
 			}else if ( strlen($param_xml->customer_egr_num) != EGR_LEN ){
-				throw new Error("egr_len", "customer_egr_num");
+				throw new BillmgrError("egr_len", "customer_egr_num");
 			}
 			if( empty($param_xml->customer_egr_org ) ){
-				throw new Error("by_company_erg", "customer_egr_org");
+				throw new BillmgrError("by_company_erg", "customer_egr_org");
 			}
 			if( empty( $param_xml->customer_egr_date  ) ){
-				throw new Error("by_company_erg", "customer_egr_date");
+				throw new BillmgrError("by_company_erg", "customer_egr_date");
 			} else if ( strtotime($param_xml->customer_egr_date) > time() ){
-				throw new Error("date_incorrect", "customer_egr_date");
+				throw new BillmgrError("date_incorrect", "customer_egr_date");
 			}
 		}
 		
 		if( 3 == $param_xml->customer_profiletype ) {
 			if ( strlen($param_xml->customer_ip_unp) != UNP_LEN ){
-				throw new Error("unp_len", "customer_ip_unp");
+				throw new BillmgrError("unp_len", "customer_ip_unp");
 			}
 			if ( strlen($param_xml->customer_ip_egr_num) != EGR_LEN ){
-				throw new Error("egr_len", "customer_ip_egr_num");
+				throw new BillmgrError("egr_len", "customer_ip_egr_num");
 			}
 			if ( strtotime($param_xml->customer_ip_egr_date) > time() ){
-				throw new Error("date_incorrect", "customer_ip_egr_date");
+				throw new BillmgrError("date_incorrect", "customer_ip_egr_date");
 			}
 		}
  		
@@ -478,7 +355,7 @@ try {
 		if ($registar_client->CreateDomain($item_param['domain'], 1, $ns, $registrant_info )) {
 			LocalQuery("domain.open", array("elid" => $item, "sok" => "ok"));
 		} else {
-			throw new Error("query", "Ошибка создания домена");
+			throw new BillmgrError("query", "Ошибка создания домена");
 		}
 	} elseif ($command == "suspend") {
 
@@ -527,7 +404,7 @@ try {
 			LocalQuery("service.postprolong", array("elid" => $item, "sok" => "ok", ));
 		} else {
 			LocalQuery("service.postprolong", array("elid" => $item, ));
-			throw new Error("query", "Ошибка продления домена");
+			throw new BillmgrError("query", "Ошибка продления домена");
 		}
 		
 	} elseif ($command == "cancel_prolong") {
@@ -565,7 +442,7 @@ try {
 		$registar_client = GetRegistrarClient($item_param["item_module"]);
 		
 		if ( ! $registar_client->UpdateNS($item_param['domain'], $ns) ) {
-			throw new Error('query', 'Ошибка измения серверов имен');
+			throw new BillmgrError('query', 'Ошибка измения серверов имен');
 		}
 	} elseif ($command == "import") {
 
