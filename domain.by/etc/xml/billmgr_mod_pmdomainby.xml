@@ -24,7 +24,7 @@
       <msg name="msg_error_by_company_erg">Юр. лица, являющиеся резидентами РБ, должны указать данные гос. регистрации</msg>
 	  <msg name="msg_error_egr_len">Длина номера ЕГР должна составлять 9 символов</msg>
 	  <msg name="msg_error_passport_len">Длина номера паспорта должна составлять 7 символов</msg>
-	  <msg name="msg_error_passport__len_personalnmbr">Длина идентификационного номера должна составлять 14 символов</msg>
+	  <msg name="msg_error_passport_len_personalnmbr">Длина идентификационного номера должна составлять 14 символов.</msg>
 	  <msg name="msg_error_unp_len">Длина УНП должна составлять 9 символов</msg>
 	  <msg name="msg_error_date_incorrect">Указанная дата еще не наступила</msg>
     </messages>

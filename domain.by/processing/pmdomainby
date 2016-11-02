@@ -415,13 +415,14 @@ try {
 		
  		$param_xml = simplexml_load_string(file_get_contents('php://stdin'));
         
+                
  		if( 1 == $param_xml->customer_profiletype  || 3 == $param_xml->customer_profiletype ) {
-			if ( strlen($param_xml->customer_passport) != PASSPORT_NMBR_LEN ){
-				throw new BillmgrError("passport_len", "customer_passport");
-			}
-			if ( strlen($param_xml->customer_passport_personalnmbr) != PASSPORT_PERSONALNMBR_LEN ){
-				throw new BillmgrError("passport_len_personalnmbr", "customer_passport_perosnalnmbr");
-			}
+			//if ( strlen($param_xml->customer_passport) != PASSPORT_NMBR_LEN ){
+			//	throw new BillmgrError("passport_len", "customer_passport");
+			//}
+            //	if ( strlen($param_xml->customer_passport_personalnmbr) != PASSPORT_PERSONALNMBR_LEN ){
+			//	throw new BillmgrError("passport_len_personalnmbr", "customer_passport_personalnmbr");
+			// }
 			if ( strtotime($param_xml->customer_passport_date) > time() ){
 				throw new BillmgrError("date_incorrect", "customer_passport_date");
 			}
