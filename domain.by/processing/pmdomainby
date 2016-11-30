@@ -320,6 +320,7 @@ try {
 		$domain = $options['param'];
 		
 		$whois_xml = simplexml_load_string($default_xml_string);
+		Debug("Options:" . print_r($options, true));
 		$registrar_client = GetRegistrarClient($options['module']);
 		$available = $registrar_client->CheckDomain($domain);
 		
@@ -443,9 +444,6 @@ try {
 		}
 		
 		if( 3 == $param_xml->customer_profiletype ) {
-			if ( strlen($param_xml->customer_ip_unp) != UNP_LEN ){
-				throw new BillmgrError("unp_len", "customer_ip_unp");
-			}
 			if ( strlen($param_xml->customer_ip_egr_num) != EGR_LEN ){
 				throw new BillmgrError("egr_len", "customer_ip_egr_num");
 			}
