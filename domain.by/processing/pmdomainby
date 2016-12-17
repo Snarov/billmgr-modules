@@ -519,9 +519,7 @@ try {
 		$item_ex_date = $db->query("SELECT expiredate FROM item WHERE id=$iid")->fetch_assoc();
 		$item_ex_year = explode('-', $item_ex_date['expiredate'])[0];
 		
-		var_dump($item_ex_date);
-		var_dump($item_ex_year);
-		
+		$item_ex_year--;
 		$registar_client = GetRegistrarClient($item_param["item_module"]);
 		if ( $registar_client->Prolong($item_param['domain'], 1, $item_ex_year) ) {
 			LocalQuery("service.postprolong", array("elid" => $item, "sok" => "ok", ));

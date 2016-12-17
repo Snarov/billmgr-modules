@@ -247,6 +247,7 @@ class RegistrarClient {
 		$response = $this->client->UpdateDomain( array(
 														'domain' => $domain,
 														's_registrant' => $registrant_info,
+														's_ns' => null,
 													  ) );
 													  
 		return $response['result'] == true;
@@ -263,6 +264,18 @@ class RegistrarClient {
 													  ) );
 													  
 		return  $response['result'] == true;
+		} catch(Exception $ex){
+			return false;
+		}
+	}
+	
+	public function InfoDomain($domain){
+		try{
+		$response = $this->client->InfoDomain( array(
+														'domain' => $domain,
+													 ) );
+													  
+		return  $response;
 		} catch(Exception $ex){
 			return false;
 		}
