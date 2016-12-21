@@ -5,7 +5,7 @@ set_include_path(get_include_path() . PATH_SEPARATOR . "/usr/local/mgr5/include/
 define('__MODULE__', "pmparkingerip");
 define('ALLOWED_TIME_DELTA', 300);
 
-define('COMMISSION_PERCENTS', 2);
+define('COMMISSION_PERCENTS', 0);
 
 require_once 'bill_util.php';
 
