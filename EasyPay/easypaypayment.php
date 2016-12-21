@@ -18,6 +18,7 @@ $merno = (string)$info->payment->paymethod[1]->MER_NO;
 $webkey = (string)$info->payment->paymethod[1]->WEB_KEY;
 $id = (string)$info->payment[0]->id;
 $sum = (string)$info->payment[0]->paymethodamount;
+
 $description = (string)$info->payment[0]->description;
 $full_description =   (string)$info->payment[0]->user_id . PHP_EOL .
                   'Имя клиента: ' . (string)$info->payment[0]->userrealname . PHP_EOL .
@@ -31,6 +32,7 @@ $expire = 30;
 
 $post_debug = 1;
 $post_encoding = 'utf-8';
+
 
 
 
