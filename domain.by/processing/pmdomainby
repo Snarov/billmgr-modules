@@ -278,8 +278,8 @@ try {
 		$features_node->addChild("feature")->addAttribute("name", "open");						// Register new domains in DB
 
 
-
-
+		$features_node->addChild("feature")->addAttribute("name", "resume");					// Resume domain. Simple change status
+		$features_node->addChild("feature")->addAttribute("name", "close");
 		$features_node->addChild("feature")->addAttribute("name", "setparam");					// Change param of service. Usually not used for domains
 		$features_node->addChild("feature")->addAttribute("name", "prolong");					// Prolong service. Simple chnage expiredate of domain in DB
 
@@ -504,8 +504,7 @@ try {
 		$db = GetConnection();
 		$iid = $options['item'];
 		$item_param = ItemParam($db, $iid);
-		$ddb = GetDomainConnection($item_param["item_module"]);
-		$ddb->query("UPDATE domain SET status = 'active' WHERE name = '" . $ddb->real_escape_string($item_param["domain"]) . "' AND status != 'deleted'");
+		
 
 		LocalQuery("service.postresume", array("elid" => $item, "sok" => "ok", ));
 	} elseif ($command == "close") {
@@ -513,9 +512,7 @@ try {
 		$db = GetConnection();
 		$iid = $options['item'];
 		$item_param = ItemParam($db, $iid);
-		$ddb = GetDomainConnection($item_param["item_module"]);
-		$ddb->query("UPDATE domain SET status = 'deleted' WHERE name = '" . $ddb->real_escape_string($item_param["domain"]) . "' AND status != 'deleted'");
-
+		
 		LocalQuery("service.postclose", array("elid" => $item, "sok" => "ok", ));
 	} elseif ($command == "setparam") {
 
