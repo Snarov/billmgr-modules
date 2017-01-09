@@ -106,6 +106,16 @@ function ItemProfiles($db, $iid, $module) {
 	
 	return $param;
 }
+
+function GetDomainConnection($sid) {
+	if ($sid != "") {
+		$param = LocalQuery("processing.edit", array("elid" => $sid));
+		return new DB($param->dbhost, $param->username, $param->password, $param->dbname);
+	} else {
+		return new DB("localhost", "root", "1", "domains"); // temporary default connection
+	}
+}
+
 function GetRegistrarClient($sid) {
 	if ($sid != "") {
 		$param = LocalQuery("processing.edit", array("elid" => $sid));
@@ -516,11 +526,16 @@ try {
 		$iid = $options['item'];
 		
 		$item_param = ItemParam($db, $iid);
-		$item_ex_date = $db->query("SELECT expiredate FROM item WHERE id=$iid")->fetch_assoc();
-		$item_ex_year = explode('-', $item_ex_date['expiredate'])[0];
+		//$item_ex_date = $db->query("SELECT expiredate FROM item WHERE id=$iid")->fetch_assoc();
+		//$item_ex_year = explode('-', $item_ex_date['expiredate'])[0];
+		//$item_ex_year--;
 		
-		$item_ex_year--;
 		$registar_client = GetRegistrarClient($item_param["item_module"]);
+		
+		$domain_info = $registar_client->InfoDomain($item_param['domain']);
+		$ex_date = $domain_info['s_state']['exDate'];
+		$item_ex_year = substr($ex_date, 0, 4);
+		
 		if ( $registar_client->Prolong($item_param['domain'], 1, $item_ex_year) ) {
 			LocalQuery("service.postprolong", array("elid" => $item, "sok" => "ok", ));
 		} else {
