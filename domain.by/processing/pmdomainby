@@ -495,9 +495,7 @@ try {
 		$db = GetConnection();
 		$iid = $options['item'];
 		$item_param = ItemParam($db, $iid);
-		$ddb = GetDomainConnection($item_param["item_module"]);
-		$ddb->query("UPDATE domain SET status = 'suspend' WHERE name = '" . $ddb->real_escape_string($item_param["domain"]) . "' AND status != 'deleted'");
-
+		
 		LocalQuery("service.postsuspend", array("elid" => $item, "sok" => "ok", ));
 	} elseif ($command == "resume") {
 

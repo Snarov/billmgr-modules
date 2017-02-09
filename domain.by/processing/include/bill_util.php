@@ -168,11 +168,11 @@ class DB extends mysqli {
 	public function __construct($host, $user, $pass, $db) {
 		parent::init();
 		if (!parent::options(MYSQLI_INIT_COMMAND, "SET AUTOCOMMIT = 1"))
-			throw new Error("MYSQLI_INIT_COMMAND Fail");
+			 Error("MYSQLI_INIT_COMMAND Fail");
 		if (!parent::options(MYSQLI_OPT_CONNECT_TIMEOUT, 5))
-			throw new Error("MYSQLI_OPT_CONNECT_TIMEOUT Fail");
+			 Error("MYSQLI_OPT_CONNECT_TIMEOUT Fail");
 		if (!parent::real_connect($host, $user, $pass, $db))
-			throw new Error("Connection ERROR. ".mysqli_connect_errno().": ".mysqli_connect_error());
+			 Error("Connection ERROR. ".mysqli_connect_errno().": ".mysqli_connect_error());
 		Debug("MySQL connection established");
 	}
 	public function __destruct() {
