@@ -59,7 +59,7 @@ EXPIRE_SOON_ADD = ", функционирование домена будет п
 DELETE_SOON_TEMPLATE = "домен {0} будет удален из реестра {1}"
 
 EMAIL_FROM = "info@parking.by"
-SMTP_SERV_ADDR = "192.168.1.1"
+SMTP_SERV_ADDR = "127.0.0.1"
 SMTP_USERNAME = "info@parking.by"
 SMTP_PASSWD = ""
 
@@ -67,18 +67,23 @@ def get_users():
     users_xml = subprocess.check_output(MGRCTL_PATH + ' -m billmgr -o xml user')
 
 def get_domains():
-    domains_xml = subprocess.check_output(MGRCTL_PATH + ' -m billmgr -o xml domain', shell = True)
+    domains_xml = subprocess.check_output(MGRCTL_PATH + ' -m billmgr -o xml domain su=snarovivan', shell = True)
     dom_domains_xml = parseString(domains_xml)
 
     domains = []
     for elem in dom_domains_xml.getElementsByTagName('elem'):
         domain = {}
         
-        name_raw = elem.getElementsByTagName('name')[0].childNodes[0].nodeValue
-        match = re.search(DOMAIN_NAME_REGEX, name_raw)
-        if match:
-            domain['name'] = match.group(1)
-
+        #обрабатываем только активные и остановленные домены
+        status = elem.getElementsByTagName('status')[0].childNodes[0].nodeValue
+        if '2' != status and '3' != status:
+			continue
+	        
+        name_raw = elem.getElementsByTagName('domain')[0].childNodes[0].nodeValue
+        #match = re.search(DOMAIN_NAME_REGEX, name_raw)
+        #if match:
+        #    domain['name'] = match.group(1)
+		domain['name'] = name_raw.encode('utf-8')
         expire_date_raw = elem.getElementsByTagName('expiredate')[0].childNodes[0].nodeValue
         domain['expire_date'] = datetime.strptime(expire_date_raw, '%Y-%m-%d').date()
 
