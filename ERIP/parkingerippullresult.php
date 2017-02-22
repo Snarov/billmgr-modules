@@ -17,7 +17,7 @@ $amount = $param["amount"];
 $time = $param["time"];
 $hmac = $param["hmac"];
 
-/* $out_xml = simplexml_load_string("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<result/>\n"); */
+ $out_xml = simplexml_load_string("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<result/>\n"); 
 
 //TODO проверка идентификатора услуги
 
