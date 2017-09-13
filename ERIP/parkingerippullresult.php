@@ -7,6 +7,8 @@ define('ALLOWED_TIME_DELTA', 300);
 
 define('COMMISSION_PERCENTS', 0);
 
+define ('PAYMENT_CURRENCY_CODE', 166);
+
 require_once 'bill_util.php';
 
 $param = CgiInput(true);
@@ -60,7 +62,7 @@ if ( empty($user) ) {
 //Billmgr не умеет правильно считать комиссию, так что считаем сумму за вычетом комиссии сами
 $amount = round ( $amount * ( 1 - COMMISSION_PERCENTS / 100 ) , 2);
 Debug("amount: $amount");
-$payment = LocalQuery('payment.add', array('paymethod' => $paymethodId, 'amount' => $amount, 'sok' => 'yes', 'su' => $user['name'], ));
+$payment = LocalQuery('payment.add', array('paymethod' => $paymethodId, 'amount' => $amount, 'payment_currency' => PAYMENT_CURRENCY_CODE, 'sok' => 'yes', 'su' => $user['name'], ));
 $payed = LocalQuery('payment.setpaid', array('elid' => $payment->payment_id,));
 
 if ( isset($payed->ok) && $payed->tparams->elid ) {
