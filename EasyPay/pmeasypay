@@ -48,6 +48,19 @@ try {
         $param_node = $config_xml->addChild("param");
 
 		 $param_node->addChild("payment_script", "/cgi/easypaypayment.php");
+		 
+		 $need_profile_info = $config_xml->addChild("needprofileinfo");
+		 $need_profile_info->addChild("country_legal");
+		 $need_profile_info->addChild("state_legal");
+		 $need_profile_info->addChild("postcode_legal");
+		 $need_profile_info->addChild("city_legal");
+		 $need_profile_info->addChild("address_legal");
+		 $need_profile_info->addChild("country_physical");
+		 $need_profile_info->addChild("state_physical");
+		 $need_profile_info->addChild("postcode_physical");
+		 $need_profile_info->addChild("city_physical");
+		 $need_profile_info->addChild("address_physical");
+		 
 
 		echo $config_xml->asXML();
 	} elseif ($command == "pmtune") {
