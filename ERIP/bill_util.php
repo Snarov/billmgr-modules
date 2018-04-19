@@ -99,11 +99,19 @@ function HttpQuery($url, $param, $requesttype = "POST", $username = "", $passwor
 	return $out;
 }
 
-function CgiInput($skip_auth = false) {
-	if ($_SERVER["REQUEST_METHOD"] == 'POST'){
-		$input = file_get_contents("php://stdin");
-	} elseif ($_SERVER["REQUEST_METHOD"] == 'GET'){
-		$input = $_SERVER["QUERY_STRING"];
+function CgiInput($skip_auth = false, $method = "") {
+	if ( empty($method) ) {
+		if ($_SERVER["REQUEST_METHOD"] == 'POST' ){
+			$input = file_get_contents("php://stdin");
+		} elseif ($_SERVER["REQUEST_METHOD"] == 'GET'){
+			$input = $_SERVER["QUERY_STRING"];
+		}
+	} else {
+		if ($method == 'POST' ){
+			$input = file_get_contents("php://stdin");
+		} elseif ($method == 'GET'){
+			$input = $_SERVER["QUERY_STRING"];
+		}
 	}
 
 	$param = array();

@@ -35,6 +35,7 @@ $post_params = array (
 main ($logfilepath, $web_key, $post_params);
 
 function main($logfilepath, $web_key, $post_params) {
+	global $mer_no;
 	if($mer_no != $post_params['mer_no']) {
 		$status = 'FAILED | wrong merchant number'; 
 		header("HTTP/1.0 400 Bad Request");
@@ -56,6 +57,7 @@ function main($logfilepath, $web_key, $post_params) {
 	} else { // обработка уведомления
 		//вычисляем электронную подпись и сравниваем с переданной
 		$notify_signature = CreateAuthorizationKey ($web_key, $post_params);
+		status .+ ' NOTIFY SIGNATURE :' . $notify_signature;
 		if($notify_signature == $post_params['notify_signature']) {
 			//осуществляем обработку уведомления и логирование как пример
 			$processed = ProcessNotify($post_params);
